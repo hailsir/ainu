@@ -1,0 +1,55 @@
+[gd_scene format=3 uid="uid://bgmp1hyucjhx0"]
+
+[ext_resource type="Script" uid="uid://bdwfkgbrq4w6k" path="res://scripts/player/player_controller.gd" id="1_8afob"]
+[ext_resource type="Script" uid="uid://b5pvy4nhikw2y" path="res://scripts/snow/snow_walker.gd" id="2_dovo2"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_x7p2l"]
+radius = 0.35
+height = 1.8
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_8afob"]
+radius = 0.3
+height = 1.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dovo2"]
+albedo_color = Color(0.35, 0.25, 0.2, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_gmlin"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lvxji"]
+albedo_color = Color(0.7, 0.55, 0.45, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_p47bc"]
+size = Vector3(0.1, 0.1, 0.2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_75vfm"]
+albedo_color = Color(0.8, 0.15, 0.1, 1)
+
+[node name="Player" type="CharacterBody3D" unique_id=696522588]
+script = ExtResource("1_8afob")
+
+[node name="CollisionShape" type="CollisionShape3D" parent="." unique_id=2074826339]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_x7p2l")
+
+[node name="Model" type="Node3D" parent="." unique_id=344791980]
+
+[node name="BodyMesh" type="MeshInstance3D" parent="Model" unique_id=1108246785]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+mesh = SubResource("CapsuleMesh_8afob")
+surface_material_override/0 = SubResource("StandardMaterial3D_dovo2")
+
+[node name="HeadMesh" type="MeshInstance3D" parent="Model" unique_id=1356584406]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.78, 0)
+mesh = SubResource("SphereMesh_gmlin")
+surface_material_override/0 = SubResource("StandardMaterial3D_lvxji")
+
+[node name="FrontIndicator" type="MeshInstance3D" parent="Model" unique_id=657132747]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -0.4)
+mesh = SubResource("BoxMesh_p47bc")
+surface_material_override/0 = SubResource("StandardMaterial3D_75vfm")
+
+[node name="SnowWalker" type="Node3D" parent="." unique_id=460214326]
+script = ExtResource("2_dovo2")

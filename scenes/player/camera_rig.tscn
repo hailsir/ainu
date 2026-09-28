@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://c7xpjnpxmwr0k"]
+
+[ext_resource type="Script" uid="uid://7dn2ajf7pgnl" path="res://scripts/player/camera_rig.gd" id="1_asq2o"]
+
+[node name="CameraRig" type="Node3D" unique_id=1799840767]
+script = ExtResource("1_asq2o")
+
+[node name="SpringArm3D" type="SpringArm3D" parent="." unique_id=1037395357]
+transform = Transform3D(1, 0, 0, 0, 0.9848077, 0.17364818, 0, -0.17364818, 0.9848077, 0.6, 0.3, 0)
+spring_length = 3.5
+margin = 0.2
+
+[node name="Camera3D" type="Camera3D" parent="SpringArm3D" unique_id=991476952]
+cull_mask = 1046527
+current = true
+fov = 65.0
+near = 0.1
+far = 500.0
