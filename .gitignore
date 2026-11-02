@@ -15,3 +15,8 @@ export_credentials.cfg
 .mono/
 data_*/
 mono_crash.*.json
+
+# Blender kit outputs (regenerate with blender/ainu_chise_kit.py)
+blender/out/
+__pycache__/
+*.blend1
