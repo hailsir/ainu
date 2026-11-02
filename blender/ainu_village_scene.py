@@ -2,7 +2,7 @@
 ainu_village_scene.py - coastal Ainu kotan (village) for Godot 4, built from the chise kit (Blender 5.0)
 ======================================================================================================
 Builds the concept scene: a beach village under a green coastal mountain range. There are chise
-houses of two lengths (assembled from the modular kit in ainu_chise_kit.py), raised pu
+houses of five lengths, 4 to 8 m (composed from the wall and roof pieces of ainu_chise_kit.py), raised pu
 storehouses, fish drying racks, a fire pit with a hanging pot, firewood, baskets, leaning pole
 bundles, a foreground fence, dugout boats, rocks, a terrain with a splat map, and the sea. There
 are no characters.
@@ -24,7 +24,7 @@ replaces this script's own collections (AinuVillage*) and the kit's collections.
 | `--godot-res-dir res://path` | where that folder will live in the Godot project (default res://ainu_village) |
 | `--export-prefabs` | also one .gltf per prefab (houses, pu, racks, ...) in <godot-dir>/prefabs |
 | `--interiors` | 5 m houses get the kit's interior props (floor, hearth, mats, rack, shelf) |
-| `--no-flora` | skip the grass and plants (ainu_flora.py) |
+| `--no-flora` | skip the grass, plants and trees (ainu_flora.py) |
 | `--render file.png` | Cycles render from the concept camera |
 | `--samples n` | Cycles samples (default 32) |
 | `--save file.blend` | save a copy of the scene |
@@ -134,9 +134,9 @@ KIT_MAT_MAP = {
 # distance from CAMERA, so the render lines up with the concept painting.
 # A position can also be ("@<placed object>", local x, local y): the heading is then relative too.
 LAYOUT = [
-    ("Chise_7m",   "Chise_Main",   2.4, -11.2,  43),
-    ("Chise_5m",   "Chise_02",    13.6,   0.1,  36),
-    ("Chise_5m",   "Chise_03",    -0.2,  16.0,  35),
+    ("Chise_8m",   "Chise_Main",   2.4, -11.2,  43),
+    ("Chise_6m",   "Chise_02",    13.6,   0.1,  36),
+    ("Chise_4m",   "Chise_03",    -0.2,  16.0,  35),
     ("Chise_7m",   "Chise_04",    21.5,  -8.5,  32),
     ("Chise_5m",   "Chise_05",   -12.2,  32.8,  41),
     ("Pu",         "Pu_01",       -6.4,  -5.8,  15),
@@ -151,9 +151,9 @@ LAYOUT = [
     ("Basket_A",   "Basket_01",   -1.8, -18.5,   0),
     ("Basket_B",   "Basket_02",    0.4, -17.6,   0),
     ("Basket_B",   "Basket_03",   -6.5, -16.7,   0),
-    ("Basket_A",   "Basket_04",   ("@Chise_Main", -4.3, 0.9), 0),
-    ("Screen",     "Screen_01",   ("@Chise_Main", -3.62, -1.3), -90),
-    ("Screen",     "Screen_02",   ("@Chise_Main", -3.62, 1.35), -90),
+    ("Basket_A",   "Basket_04",   ("@Chise_Main", -4.8, 0.9), 0),
+    ("Screen",     "Screen_01",   ("@Chise_Main", -4.12, -1.3), -90),
+    ("Screen",     "Screen_02",   ("@Chise_Main", -4.12, 1.35), -90),
     ("Boat",       "Boat_01",    -15.3, -15.6, 140),
     ("Boat",       "Boat_02",    -19.7,  -7.4, 155),
     ("Rock_C",     "Boulder_01",   1.5, -22.1,  30),
@@ -165,8 +165,21 @@ CAMERA = dict(loc=(0.0, -30.0), height=4.2, heading=-8.0, pitch=-11.5, lens=21.0
 RIDGE = [(-1250, 1180, 40), (-1079, 1151, 90), (-725, 1167, 190), (-314, 1231, 250), (30, 970, 150),
          (132, 657, 75), (156, 338, 70), (135, 181, 60), (110, 90, 25)]
 
+# Chise variants built from kit pieces. The kit's straights are 1 m along the long axis, so
+# length = 5 m + extra (extra >= -1). The long (S, N) wall runs between the corner pieces are
+# 4 m + extra, composed west to east from 1 m / 0.5 m walls and 1.5 m window walls ("W").
+# The width (4 m) and the door (W) and sacred window (E) ends come from the kit as they are.
+HOUSES = {
+    "Chise_4m": dict(extra=-1, S=["1", "1", "1"],                       N=["1", "0.5", "1", "0.5"]),
+    "Chise_5m": dict(extra=0,  S=["1", "1", "0.5", "W"],                N=["W", "0.5", "1", "1"]),
+    "Chise_6m": dict(extra=1,  S=["1", "W", "1", "0.5", "1"],           N=["1", "1", "1", "1", "1"]),
+    "Chise_7m": dict(extra=2,  S=["1", "1", "0.5", "W", "1", "1"],      N=["W", "0.5", "1", "1", "1", "1"]),
+    "Chise_8m": dict(extra=3,  S=["1", "W", "1", "1", "W", "1"],        N=["1", "1", "W", "0.5", "1", "1", "1"]),
+}
+
 # Flat building pads (prefab -> half size x, y in local space)
-PAD_SIZE = {"Chise_7m": (4.6, 3.2), "Chise_5m": (3.6, 3.2), "Pu": (1.6, 1.6), "FirePit": (1.5, 1.5),
+PAD_SIZE = {"Chise_4m": (3.1, 3.2), "Chise_5m": (3.6, 3.2), "Chise_6m": (4.1, 3.2), "Chise_7m": (4.6, 3.2),
+            "Chise_8m": (5.1, 3.2), "Pu": (1.6, 1.6), "FirePit": (1.5, 1.5),
             "Firewood": (1.0, 0.8), "FishRack_A": (2.2, 0.9), "FishRack_B": (1.3, 0.8)}
 
 INF = 1e9
@@ -565,6 +578,32 @@ def apply_tiling(me):
     me["tiled"] = True
 
 
+def reproject_thatch(me, mat_name="M_Thatch", slope_k=1.27):
+    """Planar UVs per thatch face: U runs along the eave (horizontal), V up the slope from the
+    height (z * 1/sin(pitch), the same on every face, so the courses stay level all round the
+    roof). The kit's lofts measure U as arc length per ring, which shears the texture on the
+    hips and smears it along the upper roof. Metric UVs: apply_tiling scales them afterwards."""
+    slots = {i for i, m in enumerate(me.materials) if m and m.name == mat_name}
+    if not slots or not me.uv_layers:
+        return
+    uvl = me.uv_layers[0].data
+    co = [v.co for v in me.vertices]
+    for poly in me.polygons:
+        if poly.material_index not in slots:
+            continue
+        n = poly.normal
+        h = math.hypot(n.x, n.y)
+        if h < 0.3:                                   # undersides and caps: plan projection
+            for li in poly.loop_indices:
+                c = co[me.loops[li].vertex_index]
+                uvl[li].uv = (c.x, c.y)
+            continue
+        tx, ty = -n.y / h, n.x / h                    # Z x n: along the eave, left to right from outside
+        for li in poly.loop_indices:
+            c = co[me.loops[li].vertex_index]
+            uvl[li].uv = (c.x * tx + c.y * ty, c.z * slope_k)
+
+
 def dedupe_slots(me):
     mats = list(me.materials)
     uniq = []
@@ -880,31 +919,54 @@ class Prefabs:
         self.col.objects.link(ob)
 
     # ---------------------------------------------------------------- chise from the kit
-    def chise(self, key, extra, props):
+    def chise(self, key, spec, props):
+        """Compose a house from kit pieces: the end pieces (corners, end walls, hip ends, smoke
+        gables, ridge ends) move out by extra/2, the S/N wall runs follow spec, and 1 m roof,
+        upper-roof and ridge straights fill the middle. Interior props only fit the 5 m house."""
         K = self.K
-        PROP = K["PROP"]
+        PROP, BEAM = K["PROP"], K["BEAM"]
         kit_by_base = {p.base: o for p, o in self.kit}
+        extra = spec["extra"]
+        L = 5.0 + extra
+        half = extra / 2.0
+        straights = {"Roof_S_1m", "Roof_N_1m", "RoofTop_1m", "Ridge_1m"}
         items = []
-        shift = Vector((extra / 2.0, 0, 0))
+        y_of = {}
         for pdef, ob in self.parts:
-            if pdef.layer == PROP and not props:
+            base = pdef.base
+            if base.startswith(("Wall_S_", "Wall_N_")) or base in straights:
+                y_of.setdefault(base[:6] if base.startswith("Wall") else base, pdef.pivot.y)
                 continue
-            span = pdef.meta.get("span")
-            if span is not None and pdef.meta.get("axis") == 0:
-                east = span[0] >= -1e-6
-            else:
-                east = pdef.pivot.x > 1e-3
-            loc = pdef.pivot + Vector((extra if east else 0.0, 0, 0)) - shift
-            items.append((ob.data, Matrix.Translation(loc)))
-        for base in ("Wall_S_1m", "Wall_N_1m", "Roof_S_1m", "Roof_N_1m", "RoofTop_1m", "Ridge_1m"):
-            src = next((p for p, _ in self.parts if p.base == base), None)
-            for i in range(extra if src else 0):
-                items.append((kit_by_base[base].data, Matrix.Translation((i - extra / 2.0, src.pivot.y, 0))))
+            if pdef.layer == BEAM:
+                continue
+            if pdef.layer == PROP and not (props and extra == 0):
+                continue
+            dx = 0.0 if pdef.layer == PROP else (half if pdef.pivot.x > 1e-3 else -half)
+            items.append((ob.data, Matrix.Translation(pdef.pivot + Vector((dx, 0, 0)))))
+        for base in straights:                        # 2 + extra modules centred on x = 0
+            for i in range(2 + extra):
+                items.append((kit_by_base[base].data, Matrix.Translation((-1.0 - half + i, y_of[base], 0))))
+        for side in ("S", "N"):                       # wall runs between the corner pieces
+            x = -2.0 - half
+            for piece in spec[side]:
+                base = "Wall_%s_%s" % (side, "Window_1.5m" if piece == "W" else piece + "m")
+                items.append((kit_by_base[base].data, Matrix.Translation((x, y_of["Wall_" + side], 0))))
+                x += 1.5 if piece == "W" else float(piece)
+            if abs(x - (2.0 + half)) > 1e-6:
+                raise ValueError("%s: %s wall run is %.2f m, needs %.2f m" % (key, side, x + 2.0 + half, 4.0 + extra))
+        beam = kit_by_base.get("Frame_TieBeam")
+        if beam:                                      # tie beams every ~1.4 m
+            span = L - 2.26
+            nb = max(2, int(round(span / 1.37)) + 1)
+            bz = next(p.pivot for p, _ in self.parts if p.base == "Frame_TieBeam").z
+            for i in range(nb):
+                items.append((beam.data, Matrix.Translation((-span / 2 + span * i / (nb - 1), 0, bz))))
         me = merge_meshes(CONFIG["prefix"] + "_" + key, items)
         remap_materials(me, self.mats)
+        reproject_thatch(me)
         apply_tiling(me)
         # collision: the generator's convex set for a house of this length
-        cfg = dict(self.g["CONFIG"], length=self.g["CONFIG"]["length"] + extra)
+        cfg = dict(self.g["CONFIG"], length=L)
         G = self.g["Geo"](cfg)
         cols = []
         for i, b in enumerate(self.g["build_collision"](G)):
@@ -914,8 +976,8 @@ class Prefabs:
             cols.append(self.hull("%s_%02d" % (key, i), pts))
         fx = [("FX_Smoke", Vector((G.Gx - 0.15, 0.0, G.zG + 0.45)))]
         self.add(key, me, cols, fx)
-        log("prefab %-10s %5d tris  %d mats  %d pieces  %d colliders"
-            % (key, tri_count(me), len(me.materials), len(items), len(cols)))
+        log("prefab %-10s %5d tris  %d mats  %d pieces  %d colliders  S %s  N %s"
+            % (key, tri_count(me), len(me.materials), len(items), len(cols), "-".join(spec["S"]), "-".join(spec["N"])))
 
     # ---------------------------------------------------------------- pu (raised storehouse)
     def pu(self):
@@ -980,7 +1042,10 @@ class Prefabs:
             tube(b, [(s, -0.22, zt - 0.05), (s, 0.12, zt + 0.32)], 0.025, T, sides=4)
             tube(b, [(s, 0.22, zt - 0.05), (s, -0.12, zt + 0.32)], 0.025, T, sides=4)
         tube(b, [(0.1, -1.9, -0.1), (0.05, -0.95, hp + 0.22)], 0.08, T, sides=6)        # notched log ladder
-        me = self.finish(b, "Pu")
+        me = self._obj(b, CONFIG["prefix"] + "_Pu")
+        dedupe_slots(me)
+        reproject_thatch(me)
+        apply_tiling(me)
         cols = [self.box_hull("Pu_body", (0, 0, (hp + z1) / 2), (1.05, 0.95, (z1 - hp) / 2 + 0.1)),
                 self.hull("Pu_roof", [(x * s, y * t, ze - 0.06) for x, y in ((X0 + 0.07, Y0 + 0.07),) for s in (-1, 1)
                                       for t in (-1, 1)] + [(-0.55, 0, zt + 0.2), (0.55, 0, zt + 0.2)])]
@@ -1193,8 +1258,10 @@ class Prefabs:
         self.add("Boat", me, [self.hull("Boat", [b.v[i] for i in rows[0] + rows[n // 2] + rows[-1]])], vis=0.0)
 
     def build_all(self):
-        self.chise("Chise_5m", 0, CONFIG["interiors"])
-        self.chise("Chise_7m", 2, False)
+        used = {e[0] for e in LAYOUT}
+        for key, spec in HOUSES.items():
+            if key in used:
+                self.chise(key, spec, CONFIG["interiors"])
         self.pu()
         self.fish_rack_a()
         self.fish_rack_b()

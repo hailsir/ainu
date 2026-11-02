@@ -21,15 +21,18 @@ Species (all common on Rishiri-to and the Hokkaido coast):
 | Hemerocallis_Esculenta | Ezo-kanzo, day lily | coastal meadow patches |
 | Rosa_Rugosa | Hamanasu, beach rose | dune and meadow edge |
 | Geranium_Erianthum | Chishima-furo, wild geranium | meadow patches |
+| Picea_Jezoensis | Ezo-matsu, Ezo spruce | forest patches on the lower hills |
+| Betula_Ermanii | Dake-kanba, Erman's birch | stands higher up the slopes |
 
 Game-readiness:
   * One atlas and two materials (M_FoliageGrass, M_Foliage). Both use alpha clip (glTF MASK) and
     are double-sided. Grass cards carry up-facing normals so they light like the ground.
-  * Plants are merged into 16 m chunks per group (Flora_Grass_*, Flora_Plants_*): one surface
-    per chunk, so it culls well and lets Godot draw distances apply per chunk.
+  * Plants are merged into 16 m chunks per group (Flora_Grass_*, Flora_Plants_*), and trees into
+    64 m chunks (Flora_Trees_*): one surface per chunk, so it culls well and lets Godot draw
+    distances apply per chunk. Tree chunks carry a *_COL-colonly child with a box per trunk.
   * COLOR_0 = (sway 0..1 from root to tip, random phase, 0, 1). The Godot shader
     foliage.gdshader uses it for wind. Blender ignores it.
-  * Plants have no collision.
+  * Grass and plants have no collision.
 """
 
 import bpy
@@ -56,6 +59,10 @@ CELLS = {
     "ger_leaf":  (512, 1024, 1024, 1536),
     "stem":      (1024, 1152, 1152, 1664),
     "grass_b":   (0, 1536, 1024, 2048),
+    "spruce_tier": (1152, 1152, 1664, 1536),
+    "birch_leaves": (1664, 1152, 2048, 1536),
+    "birch_bark": (1152, 1536, 1408, 2048),
+    "spruce_bark": (1408, 1536, 1536, 2048),
 }
 
 FLORA = {
@@ -75,9 +82,12 @@ SPECIES = {
     "Hemerocallis_Esculenta": ("plants", 1.6,  (0.8, 1.2)),
     "Rosa_Rugosa":            ("plants", 2.3,  (0.8, 1.3)),
     "Geranium_Erianthum":     ("plants", 1.5,  (0.8, 1.2)),
+    "Picea_Jezoensis":        ("trees",  13.0, (0.75, 1.15)),
+    "Betula_Ermanii":         ("trees",  16.0, (0.8, 1.2)),
 }
-GROUPS = {"grass": dict(mat="M_FoliageGrass", vis=75.0, up=3.0),
-          "plants": dict(mat="M_Foliage", vis=170.0, up=0.45)}
+GROUPS = {"grass": dict(mat="M_FoliageGrass", vis=75.0, up=3.0, chunk=16.0, region=FLORA["region"]),
+          "plants": dict(mat="M_Foliage", vis=170.0, up=0.45, chunk=16.0, region=FLORA["region"]),
+          "trees": dict(mat="M_Foliage", vis=650.0, up=0.5, chunk=64.0, region=(-90.0, 420.0, -110.0, 650.0))}
 
 
 def log(*a):
@@ -174,7 +184,7 @@ class Painter:
         self.comp(sl, cov, rgb, h, ao0 + (1 - ao0) * ts, ro)
 
     def leaf(self, base, ang, L, W, shape, c_mid, c_edge=None, edge=0.0, c_base=None, serr=0.0, teeth=20,
-             lobing=0.0, lobes=3, veins=0.0, nveins=8, stripes=0.0, ro=0.6, ao0=0.65):
+             lobing=0.0, lobes=3, veins=0.0, nveins=8, stripes=0.0, ro=0.6, ao0=0.65, clip=None):
         """Leaf / petal: base point, angle (radians, image space: -pi/2 = up), length L, width W (px)."""
         ca, sa = math.cos(ang), math.sin(ang)
         R = L + W
@@ -193,6 +203,9 @@ class Painter:
             hw *= 1 - serr * np.abs(np.sin(uc * math.pi * teeth))
         av = np.abs(v)
         cov = np.clip(hw - av + 0.5, 0, 1) * np.clip(u * L + 0.5, 0, 1) * np.clip((1 - u) * L + 0.5, 0, 1)
+        if clip is not None:                       # keep inside the cell
+            x0, y0, x1, y1 = clip
+            cov *= (xx > x0 + 1) & (xx < x1 - 1) & (yy > y0 + 1) & (yy < y1 - 1)
         t = av / np.maximum(hw, 1e-3)
         rgb = np.broadcast_to(np.array(c_mid, np.float32), t.shape + (3,)).copy()
         if c_base is not None:
@@ -403,6 +416,95 @@ class Painter:
         rgb = rgb * (1 - 0.15 * rib)[..., None] * np.ones_like(yy)[..., None]
         self.comp(sl, np.ones((y1 - y0, x1 - x0), np.float32), rgb, 0.5 - 0.3 * rib + 0 * yy, 0.85, 0.6)
 
+    def spruce_tier(self, cell):
+        """One tier of a spruce seen from the side: dense needles with drooping branch tips along
+        the bottom edge (the cone skirts map t = 0 to that edge)."""
+        x0, y0, x1, y1 = cell
+        W, H = x1 - x0, y1 - y0
+        rng = self.rng
+        xs = np.arange(x0, x1, dtype=np.float32) + 0.5
+        base = y0 + H * 0.55
+        edge = np.full(W, base, np.float32)
+        for k in range(10):
+            xi = x0 + W * (k + 0.5) / 10 + rng.normal() * W * 0.015
+            yi = y0 + H * (0.84 + 0.13 * rng.random())
+            wi = W * (0.035 + 0.025 * rng.random())
+            edge = np.maximum(edge, base + (yi - base) * np.exp(-((xs - xi) / wi) ** 2))
+        edge = np.minimum(edge, y1 - 2)
+        sl = (slice(y0, y1), slice(x0, x1))
+        yy = np.arange(y0, y1, dtype=np.float32)[:, None] + 0.5
+        cov = np.clip(edge[None, :] - yy + 0.5, 0, 1)
+        f = ((yy - y0) / H) * np.ones((1, W), np.float32)
+        rgb = np.stack([0.05 + 0.04 * f, 0.11 + 0.08 * f, 0.07 + 0.04 * f], -1)
+        self.comp(sl, cov, rgb, 0.3 * np.ones_like(f), 0.45 + 0.4 * f, 0.8)
+        for i in range(1100):
+            px = x0 + 2 + (W - 4) * rng.random()
+            e = float(np.interp(px, xs, edge))
+            py = y0 + (e - y0) * rng.random() ** 0.6
+            L = 12 + 20 * rng.random()
+            a = math.pi / 2 + (rng.random() - 0.5) * 1.3
+            tip = (px + math.cos(a) * L, py + math.sin(a) * L)
+            t = (py - y0) / H
+            lift = 0.75 + 0.5 * t
+            c0 = (0.05 * lift, 0.12 * lift, 0.08 * lift)
+            c1 = (0.13 * lift, 0.25 * lift, 0.16 * lift) if rng.random() > 0.15 else (0.2, 0.33, 0.19)
+            self.blade((px, py), ((px + tip[0]) / 2, (py + tip[1]) / 2 - 2), tip, 3.0, c0, c1,
+                       ao0=0.45 + 0.4 * t, ro=0.8, clip=cell)
+
+    def birch_leaves(self, cell):
+        x0, y0, x1, y1 = cell
+        c = ((x0 + x1) / 2, (y0 + y1) / 2)
+        S = min(x1 - x0, y1 - y0)
+        rng = self.rng
+        for k in range(10):                               # twigs
+            a = rng.random() * 2 * math.pi
+            tip = (c[0] + S * 0.42 * math.cos(a), c[1] + S * 0.42 * math.sin(a))
+            self.blade(c, ((c[0] + tip[0]) / 2 + 8, (c[1] + tip[1]) / 2), tip, 4, (0.3, 0.24, 0.18),
+                       (0.36, 0.3, 0.22), clip=cell)
+        greens = [(0.3, 0.48, 0.13), (0.38, 0.56, 0.17), (0.25, 0.4, 0.11), (0.45, 0.58, 0.2)]
+        shape = lambda u: _sinp(np.clip(u, 0, 1) ** 0.8) ** 0.8
+        n = 140
+        for i in range(n):
+            rr = S * 0.42 * math.sqrt(rng.random())
+            a = rng.random() * 2 * math.pi
+            base = (c[0] + rr * math.cos(a), c[1] + rr * math.sin(a))
+            L = S * (0.09 + 0.05 * rng.random())
+            col = greens[rng.integers(len(greens))]
+            depth = 0.7 + 0.3 * i / n
+            self.leaf(base, rng.random() * 2 * math.pi, L, L * 0.62, shape, tuple(v * depth for v in col),
+                      serr=0.07, teeth=12, veins=0.5, nveins=6, ro=0.55, ao0=0.55 + 0.3 * i / n, clip=cell)
+
+    def birch_bark(self, cell):
+        x0, y0, x1, y1 = cell
+        W, H = x1 - x0, y1 - y0
+        rng = self.rng
+        sl = (slice(y0, y1), slice(x0, x1))
+        yy = np.arange(H, dtype=np.float32)[:, None]
+        xx = np.arange(W, dtype=np.float32)[None, :]
+        tone = 0.92 + 0.05 * np.sin(yy * 0.05 + xx * 0.03) + 0.03 * np.sin(xx * 0.21)
+        rgb = np.stack([0.84 * tone, 0.79 * tone, 0.73 * tone], -1)
+        self.comp(sl, np.ones((H, W), np.float32), rgb, 0.5 * np.ones((H, W), np.float32), 0.85, 0.6)
+        for i in range(18):                               # peeling, pinkish-orange patches
+            self.leaf((x0 + W * rng.random(), y0 + H * rng.random()), (rng.random() - 0.5) * 0.3,
+                      60 + 70 * rng.random(), 18 + 22 * rng.random(), sh_oval, (0.82, 0.62, 0.52), ro=0.6, ao0=0.8,
+                      clip=cell)
+        for i in range(140):                              # dark horizontal lenticels
+            L = 14 + 50 * rng.random()
+            self.leaf((x0 + W * rng.random() - L / 2, y0 + H * rng.random()), (rng.random() - 0.5) * 0.1,
+                      L, 2.5 + 3.5 * rng.random(), sh_oval, (0.24, 0.2, 0.18), ro=0.75, ao0=0.6, clip=cell)
+
+    def spruce_bark(self, cell):
+        x0, y0, x1, y1 = cell
+        W, H = x1 - x0, y1 - y0
+        rng = self.rng
+        sl = (slice(y0, y1), slice(x0, x1))
+        self.comp(sl, np.ones((H, W), np.float32), (0.25, 0.21, 0.17), np.zeros((H, W), np.float32), 0.7, 0.85)
+        for i in range(160):                              # scaly plates
+            L = 14 + 14 * rng.random()
+            col = (0.36, 0.3, 0.24) if rng.random() < 0.6 else (0.2, 0.16, 0.13)
+            self.leaf((x0 + W * rng.random(), y0 + H * rng.random()), -math.pi / 2 + (rng.random() - 0.5) * 0.8,
+                      L, L * 0.7, sh_oval, col, ro=0.85, ao0=0.55, clip=cell)
+
     def paint_all(self):
         greens = [((0.16, 0.3, 0.08), (0.36, 0.52, 0.16)), ((0.2, 0.34, 0.1), (0.42, 0.56, 0.2)),
                   ((0.14, 0.26, 0.07), (0.3, 0.46, 0.13)), ((0.22, 0.32, 0.1), (0.5, 0.58, 0.24))]
@@ -419,6 +521,10 @@ class Painter:
         self.rose_leaf(CELLS["rose_leaf"])
         self.ger_leaf(CELLS["ger_leaf"])
         self.stem(CELLS["stem"])
+        self.spruce_tier(CELLS["spruce_tier"])
+        self.birch_leaves(CELLS["birch_leaves"])
+        self.birch_bark(CELLS["birch_bark"])
+        self.spruce_bark(CELLS["spruce_bark"])
 
     # ------------------------------------------------------------------ outputs
     def fill_colour(self):
@@ -669,8 +775,17 @@ class Rec:
             k1 = (k + 1) % n
             self.poly([top, ring[k], ring[k1]], [cuv("umbel", 0.5, 0.5), uvr[k], uvr[k1]])
 
-    def stem(self, pts, r, sides=3):
+    def stem(self, pts, r, sides=3, r1=None, cell="stem", seg_len=None):
+        """Tube along a polyline, tapering from r to r1. With seg_len, the polyline is split into
+        pieces no longer than seg_len and the cell's V restarts on each (bark that repeats)."""
         P = [Vector(p) for p in pts]
+        if seg_len:
+            Q = [P[0]]
+            for a, b in zip(P, P[1:]):
+                n = max(1, int(math.ceil((b - a).length / seg_len)))
+                Q += [a + (b - a) * (k / n) for k in range(1, n + 1)]
+            P = Q
+        r1 = r if r1 is None else r1
         total = sum((P[i + 1] - P[i]).length for i in range(len(P) - 1)) or 1.0
         acc = 0.0
         for i in range(len(P) - 1):
@@ -679,15 +794,31 @@ class Rec:
             a = (ref - t * ref.dot(t)).normalized()
             bb = t.cross(a)
             seg = (P[i + 1] - P[i]).length
-            v0, v1 = acc / total, (acc + seg) / total
+            ra, rb = r + (r1 - r) * acc / total, r + (r1 - r) * (acc + seg) / total
+            v0, v1 = (0.03, 0.97) if seg_len else (acc / total, (acc + seg) / total)
             for k in range(sides):
                 a0, a1 = 2 * math.pi * k / sides, 2 * math.pi * (k + 1) / sides
-                o0 = a * math.cos(a0) * r + bb * math.sin(a0) * r
-                o1 = a * math.cos(a1) * r + bb * math.sin(a1) * r
-                s0, s1 = k / sides, (k + 1) / sides
-                self.poly([P[i] + o0, P[i] + o1, P[i + 1] + o1, P[i + 1] + o0],
-                          [cuv("stem", s0, v0), cuv("stem", s1, v0), cuv("stem", s1, v1), cuv("stem", s0, v1)])
+                d0 = a * math.cos(a0) + bb * math.sin(a0)
+                d1 = a * math.cos(a1) + bb * math.sin(a1)
+                s0, s1 = 0.06 + 0.88 * k / sides, 0.06 + 0.88 * (k + 1) / sides    # inset: no bleed from neighbours
+                self.poly([P[i] + d0 * ra, P[i] + d1 * ra, P[i + 1] + d1 * rb, P[i + 1] + d0 * rb],
+                          [cuv(cell, s0, v0), cuv(cell, s1, v0), cuv(cell, s1, v1), cuv(cell, s0, v1)])
             acc += seg
+
+    def skirt(self, cell, zb, rb, zt, rt, sides=8, rot=0.0, jitter=None, centre=(0.0, 0.0)):
+        """Open cone ring from a wide bottom (cell t = 0, the ragged edge) to a narrow top."""
+        cx, cy = centre
+        ring_b, ring_t = [], []
+        for k in range(sides):
+            a = rot + 2 * math.pi * k / sides
+            j = 1.0 + (jitter[k] if jitter else 0.0)
+            ring_b.append(Vector((cx + rb * j * math.cos(a), cy + rb * j * math.sin(a), zb - 0.12 * rb * (j - 1))))
+            ring_t.append(Vector((cx + rt * math.cos(a), cy + rt * math.sin(a), zt)))
+        top = 0.9                                     # keep clear of the cell above: mipmaps would bleed it in
+        for k in range(sides):
+            k1 = (k + 1) % sides
+            self.poly([ring_b[k], ring_b[k1], ring_t[k1], ring_t[k]],
+                      [cuv(cell, 0.02, 0), cuv(cell, 0.98, 0), cuv(cell, 0.98, top), cuv(cell, 0.02, top)])
 
     def finish(self, up_k):
         """numpy record: verts, faces (loop start/total), corner verts, UVs, normals, sway."""
@@ -848,6 +979,64 @@ def sp_geranium(rng):
     return r
 
 
+def sp_spruce(rng):
+    """Ezo spruce: a tapered trunk inside stacked cone tiers, ragged needle edges from the atlas."""
+    r = Rec()
+    H = _r(rng, 14.0, 19.0)
+    r.stem([(0, 0, -0.4), (0, 0, H * 0.96)], 0.28, sides=4, r1=0.04, cell="spruce_bark", seg_len=4.5)
+    rot = rng.random() * 2 * math.pi
+    tiers = 7
+    for i in range(tiers):
+        f = i / tiers
+        zb = H * (0.1 + 0.78 * f)
+        R0 = 0.24 * H * (1 - f) ** 0.85 + 0.45
+        ht = H * 0.2 * (1 - 0.45 * f) + 0.8
+        sides = 8 if i < 4 else 6
+        jit = [_r(rng, -0.12, 0.12) for _ in range(sides)]
+        r.skirt("spruce_tier", zb, R0, zb + ht, R0 * 0.12, sides=sides, rot=rot + i * 0.7, jitter=jit)
+    r.skirt("spruce_tier", H * 0.86, 0.55, H * 1.03, 0.02, sides=5, rot=rot)
+    r.trunk = 0.3
+    return r
+
+
+def sp_birch(rng):
+    """Erman's birch: a leaning, twisting pale trunk, three limbs, leaf-cluster cards."""
+    r = Rec()
+    H = _r(rng, 8.0, 12.0)
+    th = rng.random() * 2 * math.pi
+    lean = Vector((math.cos(th), math.sin(th), 0)) * _r(rng, 0.4, 1.2)
+    side = Vector((-lean.y, lean.x, 0)) * 0.4
+    pts = [Vector((0, 0, -0.3)), lean * 0.15 + Z * (H * 0.25), lean * 0.5 + side + Z * (H * 0.5),
+           lean * 0.8 - side * 0.5 + Z * (H * 0.74)]
+    r.stem(pts, 0.17, sides=6, r1=0.07, cell="birch_bark", seg_len=2.6)
+    ends = [pts[-1] + Z * (H * 0.08)]
+    for k in range(3):
+        a = th + k * 2.1 + _r(rng, -0.4, 0.4)
+        out = Vector((math.cos(a), math.sin(a), 0))
+        s0 = pts[2] + (pts[3] - pts[2]) * _r(rng, 0.0, 0.6)
+        mid = s0 + out * (H * 0.14) + Z * (H * 0.08)
+        end = mid + out * (H * 0.14) + Z * (H * 0.1)
+        r.stem([s0, mid, end], 0.07, sides=4, r1=0.025, cell="birch_bark", seg_len=2.6)
+        ends.append(end)
+    centre = lean * 0.7 + Z * (H * 0.72)
+    cl = list(ends)
+    for k in range(11):
+        a = rng.random() * 2 * math.pi
+        rr = math.sqrt(rng.random())
+        cl.append(centre + Vector((0.28 * H * rr * math.cos(a), 0.28 * H * rr * math.sin(a),
+                                   0.2 * H * _r(rng, -0.8, 1.0))))
+    for c in cl:
+        sz = _r(rng, 2.4, 3.3)
+        a = rng.random() * math.pi
+        n1 = Vector((math.cos(a), math.sin(a), 0.25))
+        n2 = Vector((-math.sin(a), math.cos(a), 0.25))
+        r.quad("birch_leaves", c, n1, Z, sz)
+        r.quad("birch_leaves", c, n2, Z, sz)
+        r.quad("birch_leaves", c + Z * 0.2, Vector((0.15, 0.1, 1.0)), Vector((math.cos(a), math.sin(a), 0)), sz * 0.9)
+    r.trunk = 0.2
+    return r
+
+
 BUILDERS = {
     "Grass_Meadow": lambda rng: sp_grass(rng, "grass", 0.42, 3),
     "Grass_Flowers": lambda rng: sp_grass(rng, "grass_b", 0.36, 3),
@@ -857,14 +1046,20 @@ BUILDERS = {
     "Hemerocallis_Esculenta": sp_hemerocallis,
     "Rosa_Rugosa": sp_rosa,
     "Geranium_Erianthum": sp_geranium,
+    "Picea_Jezoensis": sp_spruce,
+    "Betula_Ermanii": sp_birch,
 }
 
 
 def build_records():
     recs = {}
     for i, (key, (group, _, _)) in enumerate(SPECIES.items()):
-        recs[key] = [BUILDERS[key](np.random.default_rng(FLORA["seed"] * 100 + i * 10 + v)).finish(GROUPS[group]["up"])
-                     for v in range(FLORA["variants"])]
+        recs[key] = []
+        for v in range(FLORA["variants"]):
+            b = BUILDERS[key](np.random.default_rng(FLORA["seed"] * 100 + i * 10 + v))
+            rec = b.finish(GROUPS[group]["up"])
+            rec["trunk"] = getattr(b, "trunk", 0.0)
+            recs[key].append(rec)
     return recs
 
 
@@ -997,6 +1192,16 @@ def suitability(key, land, x, y, z, w, fence_d, village_d):
     if key == "Rosa_Rugosa":
         edge = smooth((d - 9.0) / 3.0) * (1 - smooth((d - 24.0) / 4.0))
         return 0.7 * edge * (grass + 0.6 * sand) * smooth((n.fbm(x / 10 - 20, y / 10, 3) + 0.05) * 4)
+    if key == "Picea_Jezoensis":
+        if village_d < 55 or d < 25 or rock > 0.35:
+            return 0.0
+        forest = smooth((n.fbm(x / 70 + 11, y / 70 - 4, 3) + 0.05) * 3)
+        return 0.6 * (grass + 0.4 * earth) * forest * (1 - smooth((z - 160) / 80)) * smooth((village_d - 55) / 45)
+    if key == "Betula_Ermanii":
+        if village_d < 50 or d < 30 or rock > 0.6:
+            return 0.0
+        stand = smooth((n.fbm(x / 55 - 30, y / 55 + 8, 3) + 0.1) * 3)
+        return 0.55 * (grass + 0.5 * rock) * stand * smooth((z - 4) / 30) * smooth((village_d - 50) / 30)
     if key == "Geranium_Erianthum":
         return 0.6 * grass * far * smooth((n.fbm(x / 7 + 70, y / 7 - 9, 3) - 0.3) * 4)
     return 0.0
@@ -1009,12 +1214,13 @@ def smooth(x):
 
 def populate(recs, mats, land, hn, placed, parent, fence=(), camera=(0.0, -30.0), village_c=(4.0, -4.0)):
     """Scatter every species and merge the instances into 16 m chunks per group."""
-    x0, x1, y0, y1 = FLORA["region"]
     blk = Blockers(placed)
     chunks = {}
     counts = {k: 0 for k in SPECIES}
     for si, (key, (group, spacing, (s_lo, s_hi))) in enumerate(SPECIES.items()):
-        margin = 0.05 if group == "grass" else 0.45
+        x0, x1, y0, y1 = GROUPS[group]["region"]
+        csize = GROUPS[group]["chunk"]
+        margin = {"grass": 0.05, "plants": 0.45, "trees": 2.0}[group]
         nx, ny = int((x1 - x0) / spacing), int((y1 - y0) / spacing)
         for j in range(ny):
             for i in range(nx):
@@ -1024,7 +1230,7 @@ def populate(recs, mats, land, hn, placed, parent, fence=(), camera=(0.0, -30.0)
                 if (0.5 + 0.5 * hn(i, j, si, 3)) > 0.999:
                     continue
                 cam_d = math.hypot(x - camera[0], y - camera[1])
-                if cam_d < (1.5 if group == "grass" else 3.5):
+                if cam_d < {"grass": 1.5, "plants": 3.5, "trees": 8.0}[group]:
                     continue
                 z = land.height(x, y)
                 gx = (land.height(x + 0.5, y) - land.height(x - 0.5, y))
@@ -1042,7 +1248,7 @@ def populate(recs, mats, land, hn, placed, parent, fence=(), camera=(0.0, -30.0)
                 var = int((0.5 + 0.5 * hn(i, j, si, 5)) * FLORA["variants"]) % FLORA["variants"]
                 s = s_lo + (s_hi - s_lo) * (0.5 + 0.5 * hn(i, j, si, 6))
                 rot = math.pi * hn(i, j, si, 7)
-                cx, cy = int(math.floor(x / FLORA["chunk"])), int(math.floor(y / FLORA["chunk"]))
+                cx, cy = int(math.floor(x / csize)), int(math.floor(y / csize))
                 chunks.setdefault((group, cx, cy), []).append(
                     (recs[key][var], (x, y, z - 0.02, rot, s), 0.5 + 0.5 * hn(i, j, si, 8)))
                 counts[key] += 1
@@ -1051,7 +1257,8 @@ def populate(recs, mats, land, hn, placed, parent, fence=(), camera=(0.0, -30.0)
         parent.children.link(col)
     objs = []
     for (group, cx, cy), lst in sorted(chunks.items()):
-        ox, oy = (cx + 0.5) * FLORA["chunk"], (cy + 0.5) * FLORA["chunk"]
+        csize = GROUPS[group]["chunk"]
+        ox, oy = (cx + 0.5) * csize, (cy + 0.5) * csize
         oz = land.height(ox, oy)
         inst = [(rec, _mtx(x - ox, y - oy, z - oz, rot, s), ph) for rec, (x, y, z, rot, s), ph in lst]
         name = "Flora_%s_%02d_%02d" % (group.capitalize(), cx + 50, cy + 50)
@@ -1062,14 +1269,32 @@ def populate(recs, mats, land, hn, placed, parent, fence=(), camera=(0.0, -30.0)
         ob["flora_group"] = group
         col.objects.link(ob)
         objs.append(ob)
+        trunks = [(x - ox, y - oy, z - oz, rec["trunk"] * s) for rec, (x, y, z, rot, s), ph in lst if rec["trunk"]]
+        if trunks:                                    # one box per trunk, trimesh body in Godot
+            V, F = [], []
+            for tx, ty, tz, tr in trunks:
+                i0 = len(V)
+                V += [(tx + sx * tr, ty + sy * tr, tz + sz) for sz in (-0.4, 3.5) for sx, sy in
+                      ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+                F += [(i0, i0 + 3, i0 + 2, i0 + 1), (i0 + 4, i0 + 5, i0 + 6, i0 + 7)]
+                F += [(i0 + k, i0 + (k + 1) % 4, i0 + 4 + (k + 1) % 4, i0 + 4 + k) for k in range(4)]
+            cme = bpy.data.meshes.new("SM_AV_" + name + "_COL")
+            cme.from_pydata(V, [], F)
+            cob = bpy.data.objects.new(name + "_COL-colonly", cme)
+            cob.parent = ob
+            cob.display_type = "WIRE"
+            cob.hide_render = True
+            col.objects.link(cob)
+            objs.append(cob)
     tri = {k: recs[k][0]["tris"] for k in SPECIES}
     print("\n%-24s %6s %8s %10s" % ("flora species", "tris", "count", "tris total"))
     total = 0
     for k in SPECIES:
         total += tri[k] * counts[k]
         print("%-24s %6d %8d %10d" % (k, tri[k], counts[k], tri[k] * counts[k]))
-    print("flora: %d plants, ~%d tris in %d chunks (grass draws to %.0f m, plants to %.0f m in Godot)\n"
-          % (sum(counts.values()), total, len(objs), GROUPS["grass"]["vis"], GROUPS["plants"]["vis"]))
+    print("flora: %d plants and trees, ~%d tris in %d chunks (Godot draws grass to %.0f m, plants to %.0f m, "
+          "trees to %.0f m)\n" % (sum(counts.values()), total, len([o for o in objs if not o.name.endswith("-colonly")]),
+                                 GROUPS["grass"]["vis"], GROUPS["plants"]["vis"], GROUPS["trees"]["vis"]))
     return objs, counts, total
 
 
@@ -1092,7 +1317,7 @@ def build(gen, land, placed, parent, tex_dir, res=2048, force=False, camera=(0.0
             for ob in list(c.objects):
                 bpy.data.objects.remove(ob, do_unlink=True)
     for me in list(bpy.data.meshes):
-        if me.users == 0 and me.name.startswith("SM_AV_Flora"):
+        if me.users == 0 and (me.name.startswith("SM_AV_Flora") or me.name.startswith("SM_AV_Flora_Trees")):
             bpy.data.meshes.remove(me)
     tex = make_textures(tex_dir, res, force)
     mats = make_materials(tex)
@@ -1206,14 +1431,18 @@ def _standalone(opts):
     col = bpy.data.collections.new("Flora_Preview")
     bpy.context.scene.collection.children.link(col)
     obs = []
+    small = [k for k in species if SPECIES[k][0] != "trees"]
     for i, (key, me) in enumerate(species.items()):
         ob = bpy.data.objects.new(key, me)
-        ob.location = (i * 1.3 - 4.55, 0, 0)
+        if key in small:
+            ob.location = (small.index(key) * 1.3 - 4.55, 0, 0)
+        else:
+            ob.location = ((len(obs) - len(small)) * 12.0 - 6.0, 40.0, 0)
         col.objects.link(ob)
         obs.append(ob)
         print("  %-24s %5d tris" % (key, recs[key][0]["tris"]))
     gme = bpy.data.meshes.new("Preview_Ground")
-    gme.from_pydata([(-9, -4, 0), (9, -4, 0), (9, 6, 0), (-9, 6, 0)], [], [(0, 1, 2, 3)])
+    gme.from_pydata([(-40, -4, 0), (40, -4, 0), (40, 60, 0), (-40, 60, 0)], [], [(0, 1, 2, 3)])
     gm = bpy.data.materials.new("Preview_Ground")
     gm.diffuse_color = (0.08, 0.07, 0.05, 1)
     if gm.node_tree:
@@ -1225,8 +1454,8 @@ def _standalone(opts):
     sun.rotation_euler = (math.radians(50), 0, math.radians(30))
     col.objects.link(sun)
     cam = bpy.data.objects.new("Cam", bpy.data.cameras.new("Cam"))
-    cam.location = (0, -9.5, 2.4)
-    cam.rotation_euler = (math.radians(80), 0, 0)
+    cam.location = (0, -9.5, 2.6)
+    cam.rotation_euler = (math.radians(91), 0, 0)
     cam.data.lens = 26
     col.objects.link(cam)
     sc = bpy.context.scene
