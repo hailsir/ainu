@@ -1,0 +1,282 @@
+[gd_scene format=3 uid="uid://bwkyhcfkvgasr"]
+
+[ext_resource type="Script" uid="uid://dttt13jw5jxy8" path="res://scripts/tactical/tactical_grid.gd" id="1_1kg6w"]
+[ext_resource type="Script" uid="uid://cucom2oq2uckp" path="res://scripts/tactical/tactical_combat_setup.gd" id="1_lp3e1"]
+[ext_resource type="Shader" uid="uid://d1ta8vnb10lvb" path="res://shaders/sky.gdshader" id="2_41idw"]
+[ext_resource type="Script" uid="uid://rg643x8c54pn" path="res://scripts/tactical/grid_visual.gd" id="2_lp3e1"]
+[ext_resource type="Script" uid="uid://covyfycyyr4pt" path="res://scripts/tactical/turn_manager.gd" id="3_q8sjq"]
+[ext_resource type="Script" uid="uid://cuq8hdx4tof52" path="res://scripts/tactical/tactical_unit.gd" id="4_41idw"]
+[ext_resource type="Script" uid="uid://ysv5x1tmda85" path="res://scripts/sky/sky_controller.gd" id="7_ak87c"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ygwch"]
+shader = ExtResource("2_41idw")
+shader_parameter/zenith_color = Color(0.35, 0.55, 0.82, 1)
+shader_parameter/horizon_color = Color(0.65, 0.75, 0.85, 1)
+shader_parameter/ground_color = Color(0.15, 0.12, 0.1, 1)
+shader_parameter/fog_color = Color(0.72, 0.78, 0.88, 1)
+shader_parameter/fog_blend = 0.0
+shader_parameter/sky_energy = 1.0
+shader_parameter/sun_dir = Vector3(0, 0.5, 0.86)
+shader_parameter/sun_color = Color(1, 0.95, 0.85, 1)
+shader_parameter/sun_disc_energy = 6.0
+shader_parameter/sun_glow_strength = 0.6
+shader_parameter/horizon_glow_strength = 1.1
+shader_parameter/horizon_glow = 0.0
+shader_parameter/sun_strength = 1.0
+shader_parameter/sun_occlusion = 0.0
+shader_parameter/moon_dir = Vector3(0, -0.5, -0.86)
+shader_parameter/moon_color = Color(0.62, 0.7, 0.95, 1)
+shader_parameter/moon_disc_energy = 1.6
+shader_parameter/moon_illum = 1.0
+shader_parameter/moon_energy = 0.0
+shader_parameter/star_alpha = 0.0
+shader_parameter/star_density = 0.974
+shader_parameter/star_twinkle = 1.0
+shader_parameter/cloud_amount = 1.0
+shader_parameter/high_edges = Vector2(0.72, 0.8)
+shader_parameter/high_uv_scale = 0.1333
+shader_parameter/high_scroll = Vector2(0, 0)
+shader_parameter/high_opacity = 0.6
+shader_parameter/low_edges = Vector2(0.66, 0.82)
+shader_parameter/low_uv_scale = 0.1875
+shader_parameter/low_scroll = Vector2(0, 0)
+shader_parameter/horizon_fade_lo = 0.02
+shader_parameter/horizon_fade_hi = 0.12
+
+[sub_resource type="Sky" id="Sky_ygwch"]
+sky_material = SubResource("ShaderMaterial_ygwch")
+process_mode = 2
+radiance_size = 2
+
+[sub_resource type="Environment" id="Environment_8r0cb"]
+background_mode = 2
+sky = SubResource("Sky_ygwch")
+ambient_light_source = 2
+ambient_light_color = Color(0.55, 0.62, 0.75, 1)
+ambient_light_sky_contribution = 0.0
+ambient_light_energy = 0.4
+reflected_light_source = 2
+tonemap_mode = 2
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_tiosc"]
+size = Vector2(30, 30)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_750uw"]
+albedo_color = Color(0.3, 0.4, 0.2, 1)
+roughness = 0.9
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_myqmb"]
+size = Vector3(30, 0.1, 30)
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_r1us0"]
+radius = 0.3
+height = 1.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fhq5j"]
+albedo_color = Color(0.2, 0.4, 0.9, 1)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_6owvw"]
+radius = 0.3
+height = 1.4
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_4t1bh"]
+radius = 0.3
+height = 1.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_g4jk7"]
+albedo_color = Color(0.2, 0.4, 0.9, 1)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_s2tti"]
+radius = 0.3
+height = 1.4
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_58nfs"]
+radius = 0.3
+height = 1.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_is6cf"]
+albedo_color = Color(0.2, 0.4, 0.9, 1)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_wh4ys"]
+radius = 0.3
+height = 1.4
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_bod8s"]
+radius = 0.3
+height = 1.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_02wfi"]
+albedo_color = Color(0.9, 0.2, 0.15, 1)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_kewx5"]
+radius = 0.3
+height = 1.4
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_y3nkr"]
+radius = 0.3
+height = 1.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_e2wg5"]
+albedo_color = Color(0.9, 0.2, 0.15, 1)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_50qcp"]
+radius = 0.3
+height = 1.4
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_xqtrs"]
+radius = 0.3
+height = 1.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_c2t7f"]
+albedo_color = Color(0.9, 0.2, 0.15, 1)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_2243l"]
+radius = 0.3
+height = 1.4
+
+[node name="TacticalCombatTest" type="Node3D" unique_id=952187608]
+script = ExtResource("1_lp3e1")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1956290401]
+environment = SubResource("Environment_8r0cb")
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=1737505497]
+transform = Transform3D(0.8660254, -0.38302222, 0.32139382, 0, 0.64278764, 0.76604444, -0.5, -0.66341394, 0.5566704, 0, 0, 0)
+light_energy = 1.3
+shadow_enabled = true
+
+[node name="Moon" type="DirectionalLight3D" parent="." unique_id=2088136111]
+visible = false
+light_color = Color(0.62, 0.7, 0.95, 1)
+light_energy = 0.0
+
+[node name="Ground" type="StaticBody3D" parent="." unique_id=1733200683]
+
+[node name="GroundMesh" type="MeshInstance3D" parent="Ground" unique_id=1298266178]
+mesh = SubResource("PlaneMesh_tiosc")
+surface_material_override/0 = SubResource("StandardMaterial3D_750uw")
+
+[node name="GroundCollision" type="CollisionShape3D" parent="Ground" unique_id=1862843674]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
+shape = SubResource("BoxShape3D_myqmb")
+
+[node name="TacticalGrid" type="Node3D" parent="." unique_id=842144982]
+script = ExtResource("1_1kg6w")
+grid_origin = Vector3(-9, 0, -9)
+
+[node name="GridVisual" type="Node3D" parent="TacticalGrid" unique_id=722278030]
+script = ExtResource("2_lp3e1")
+
+[node name="TurnManager" type="Node" parent="." unique_id=1694694027]
+script = ExtResource("3_q8sjq")
+
+[node name="CombatCamera" type="Camera3D" parent="." unique_id=1809921413]
+transform = Transform3D(1, 0, 0, 0, 0.57357645, 0.81915206, 0, -0.81915206, 0.57357645, 0, 18, 12)
+cull_mask = 1046527
+current = true
+fov = 50.0
+
+[node name="PlayerUnit1" type="CharacterBody3D" parent="." unique_id=1359757493]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.25, 0, -5.25)
+script = ExtResource("4_41idw")
+unit_name = "PlayerUnit1"
+attack_damage = 30
+
+[node name="Mesh" type="MeshInstance3D" parent="PlayerUnit1" unique_id=1480796671]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+mesh = SubResource("CapsuleMesh_r1us0")
+surface_material_override/0 = SubResource("StandardMaterial3D_fhq5j")
+
+[node name="Collision" type="CollisionShape3D" parent="PlayerUnit1" unique_id=163329973]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("CapsuleShape3D_6owvw")
+
+[node name="PlayerUnit2" type="CharacterBody3D" parent="." unique_id=314048508]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 0, -5.25)
+script = ExtResource("4_41idw")
+unit_name = "PlayerUnit2"
+attack_damage = 30
+
+[node name="Mesh" type="MeshInstance3D" parent="PlayerUnit2" unique_id=1810140070]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+mesh = SubResource("CapsuleMesh_4t1bh")
+surface_material_override/0 = SubResource("StandardMaterial3D_g4jk7")
+
+[node name="Collision" type="CollisionShape3D" parent="PlayerUnit2" unique_id=861286362]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("CapsuleShape3D_s2tti")
+
+[node name="PlayerUnit3" type="CharacterBody3D" parent="." unique_id=1556442839]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.25, 0, -5.25)
+script = ExtResource("4_41idw")
+unit_name = "PlayerUnit3"
+attack_damage = 30
+
+[node name="Mesh" type="MeshInstance3D" parent="PlayerUnit3" unique_id=174087613]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+mesh = SubResource("CapsuleMesh_58nfs")
+surface_material_override/0 = SubResource("StandardMaterial3D_is6cf")
+
+[node name="Collision" type="CollisionShape3D" parent="PlayerUnit3" unique_id=1066342209]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("CapsuleShape3D_wh4ys")
+
+[node name="EnemyUnit1" type="CharacterBody3D" parent="." unique_id=495608765]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 0, 5.25)
+script = ExtResource("4_41idw")
+unit_name = "EnemyUnit1"
+max_hp = 80
+move_range = 3
+attack_damage = 20
+team = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="EnemyUnit1" unique_id=953318887]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+mesh = SubResource("CapsuleMesh_bod8s")
+surface_material_override/0 = SubResource("StandardMaterial3D_02wfi")
+
+[node name="Collision" type="CollisionShape3D" parent="EnemyUnit1" unique_id=1086338436]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("CapsuleShape3D_kewx5")
+
+[node name="EnemyUnit2" type="CharacterBody3D" parent="." unique_id=859095723]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.25, 0, 5.25)
+script = ExtResource("4_41idw")
+unit_name = "EnemyUnit2"
+max_hp = 80
+move_range = 3
+attack_damage = 20
+team = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="EnemyUnit2" unique_id=1914872011]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+mesh = SubResource("CapsuleMesh_y3nkr")
+surface_material_override/0 = SubResource("StandardMaterial3D_e2wg5")
+
+[node name="Collision" type="CollisionShape3D" parent="EnemyUnit2" unique_id=1227090947]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("CapsuleShape3D_50qcp")
+
+[node name="EnemyUnit3" type="CharacterBody3D" parent="." unique_id=597881011]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.75, 0, 5.25)
+script = ExtResource("4_41idw")
+unit_name = "EnemyUnit3"
+max_hp = 80
+move_range = 3
+attack_damage = 20
+team = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="EnemyUnit3" unique_id=1480095196]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+mesh = SubResource("CapsuleMesh_xqtrs")
+surface_material_override/0 = SubResource("StandardMaterial3D_c2t7f")
+
+[node name="Collision" type="CollisionShape3D" parent="EnemyUnit3" unique_id=1506312191]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("CapsuleShape3D_2243l")
+
+[node name="SkyController" type="Node" parent="." unique_id=1586023712]
+script = ExtResource("7_ak87c")
+environment_path = NodePath("../WorldEnvironment")
+sun_path = NodePath("../Sun")
+moon_path = NodePath("../Moon")

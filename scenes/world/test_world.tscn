@@ -1,0 +1,275 @@
+[gd_scene format=3 uid="uid://duqycvvg3fbfo"]
+
+[ext_resource type="Script" uid="uid://beiv1xq3cx2a2" path="res://scripts/world/world_setup.gd" id="1_jlx5v"]
+[ext_resource type="PackedScene" uid="uid://bgmp1hyucjhx0" path="res://scenes/player/player.tscn" id="1_xl1yy"]
+[ext_resource type="Shader" uid="uid://d1ta8vnb10lvb" path="res://shaders/sky.gdshader" id="2_56i7j"]
+[ext_resource type="Shader" uid="uid://c388q0kr7wus6" path="res://shaders/snow_ground.gdshader" id="2_i3rsd"]
+[ext_resource type="PackedScene" uid="uid://c7xpjnpxmwr0k" path="res://scenes/player/camera_rig.tscn" id="2_jlx5v"]
+[ext_resource type="Script" uid="uid://bynj1rf4jd1xj" path="res://scripts/snow/snow_field.gd" id="5_f38oy"]
+[ext_resource type="Texture2D" uid="uid://dbkcl7uxk7igw" path="res://assets/snow/snow_maps.png" id="6_m0ivj"]
+[ext_resource type="Script" uid="uid://dfp07v6npvu3m" path="res://scripts/snow/snow_precipitation.gd" id="7_m0ivj"]
+[ext_resource type="Script" uid="uid://clghh88oaqc1q" path="res://scripts/snow/snow_weather.gd" id="8_obw6i"]
+[ext_resource type="Script" uid="uid://ysv5x1tmda85" path="res://scripts/sky/sky_controller.gd" id="10_1aw3b"]
+[ext_resource type="Script" uid="uid://24hley6ngrep" path="res://scripts/debug/debug_menu.gd" id="11_gaq8h"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_em46u"]
+shader = ExtResource("2_56i7j")
+shader_parameter/zenith_color = Color(0.35, 0.55, 0.82, 1)
+shader_parameter/horizon_color = Color(0.65, 0.75, 0.85, 1)
+shader_parameter/ground_color = Color(0.15, 0.12, 0.1, 1)
+shader_parameter/fog_color = Color(0.72, 0.78, 0.88, 1)
+shader_parameter/fog_blend = 0.0
+shader_parameter/sky_energy = 1.0
+shader_parameter/sun_dir = Vector3(0, 0.5, 0.86)
+shader_parameter/sun_color = Color(1, 0.95, 0.85, 1)
+shader_parameter/sun_disc_energy = 6.0
+shader_parameter/sun_glow_strength = 0.6
+shader_parameter/horizon_glow_strength = 1.1
+shader_parameter/horizon_glow = 0.0
+shader_parameter/sun_strength = 1.0
+shader_parameter/sun_occlusion = 0.0
+shader_parameter/moon_dir = Vector3(0, -0.5, -0.86)
+shader_parameter/moon_color = Color(0.62, 0.7, 0.95, 1)
+shader_parameter/moon_disc_energy = 1.6
+shader_parameter/moon_illum = 1.0
+shader_parameter/moon_energy = 0.0
+shader_parameter/star_alpha = 0.0
+shader_parameter/star_density = 0.974
+shader_parameter/star_twinkle = 1.0
+shader_parameter/cloud_amount = 1.0
+shader_parameter/high_edges = Vector2(0.72, 0.8)
+shader_parameter/high_uv_scale = 0.1333
+shader_parameter/high_scroll = Vector2(0, 0)
+shader_parameter/high_opacity = 0.6
+shader_parameter/low_edges = Vector2(0.66, 0.82)
+shader_parameter/low_uv_scale = 0.1875
+shader_parameter/low_scroll = Vector2(0, 0)
+shader_parameter/horizon_fade_lo = 0.02
+shader_parameter/horizon_fade_hi = 0.12
+
+[sub_resource type="Sky" id="Sky_cg5f0"]
+sky_material = SubResource("ShaderMaterial_em46u")
+process_mode = 2
+radiance_size = 2
+
+[sub_resource type="Environment" id="Environment_utf6i"]
+background_mode = 2
+sky = SubResource("Sky_cg5f0")
+ambient_light_source = 2
+ambient_light_color = Color(0.55, 0.62, 0.75, 1)
+ambient_light_sky_contribution = 0.0
+ambient_light_energy = 0.4
+reflected_light_source = 2
+tonemap_mode = 2
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_56i7j"]
+size = Vector2(120, 120)
+subdivide_width = 239
+subdivide_depth = 239
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_1aw3b"]
+render_priority = 0
+shader = ExtResource("2_i3rsd")
+shader_parameter/field_center = Vector2(0, 0)
+shader_parameter/field_size = 120.0
+shader_parameter/texel = 0.000833333
+shader_parameter/powder_albedo = Color(0.93, 0.95, 1, 1)
+shader_parameter/packed_albedo = Color(0.64, 0.7, 0.83, 1)
+shader_parameter/crease_tint = Color(0.45, 0.53, 0.72, 1)
+shader_parameter/powder_roughness = 0.9
+shader_parameter/packed_roughness = 0.42
+shader_parameter/crease_strength = 1.1
+shader_parameter/normal_strength = 1.0
+shader_parameter/lod_start = 40.0
+shader_parameter/lod_end = 90.0
+shader_parameter/lod_tap_scale = 6.0
+shader_parameter/vertex_footprint_uv = 0.0041667
+shader_parameter/cloud_tile_size = 8000.0
+shader_parameter/cloud_scroll = Vector2(0, 0)
+shader_parameter/cloud_edges = Vector2(1, 1)
+shader_parameter/cloud_shadow_strength = 0.0
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_gaq8h"]
+size = Vector3(120, 0.1, 120)
+
+[sub_resource type="BoxMesh" id="BoxMesh_obw6i"]
+size = Vector3(2, 1.5, 2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_56i7j"]
+albedo_color = Color(0.5, 0.35, 0.2, 1)
+roughness = 0.85
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_1aw3b"]
+size = Vector3(2, 1.5, 2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_gaq8h"]
+size = Vector3(1.5, 1, 3)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_em46u"]
+albedo_color = Color(0.4, 0.3, 0.25, 1)
+roughness = 0.85
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_h6k38"]
+size = Vector3(1.5, 1, 3)
+
+[sub_resource type="BoxMesh" id="BoxMesh_u0e1l"]
+size = Vector3(3, 2, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dc00g"]
+albedo_color = Color(0.55, 0.4, 0.3, 1)
+roughness = 0.85
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_rq54g"]
+size = Vector3(3, 2, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_dwq0o"]
+size = Vector3(1, 1.2, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_yapyo"]
+albedo_color = Color(0.45, 0.35, 0.28, 1)
+roughness = 0.85
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ew2ib"]
+size = Vector3(1, 1.2, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_s4qyy"]
+size = Vector3(4, 0.8, 0.5)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tersh"]
+albedo_color = Color(0.6, 0.45, 0.3, 1)
+roughness = 0.85
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_g4hen"]
+size = Vector3(4, 0.8, 0.5)
+
+[sub_resource type="BoxMesh" id="BoxMesh_3cvmg"]
+size = Vector3(1.5, 1.5, 1.5)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_w0w3b"]
+albedo_color = Color(0.38, 0.3, 0.22, 1)
+roughness = 0.85
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_s4g5r"]
+size = Vector3(1.5, 1.5, 1.5)
+
+[node name="TestWorld" type="Node3D" unique_id=868939383]
+script = ExtResource("1_jlx5v")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1655021218]
+environment = SubResource("Environment_utf6i")
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=1188853705]
+transform = Transform3D(0.8660254, -0.35355338, 0.35355338, 0, 0.70710677, 0.70710677, -0.5, -0.6123724, 0.6123724, 0, 0, 0)
+light_color = Color(1, 0.95, 0.85, 1)
+light_energy = 1.2
+shadow_enabled = true
+
+[node name="Moon" type="DirectionalLight3D" parent="." unique_id=480230469]
+visible = false
+light_color = Color(0.62, 0.7, 0.95, 1)
+light_energy = 0.0
+
+[node name="Ground" type="StaticBody3D" parent="." unique_id=1667082126]
+
+[node name="GroundMesh" type="MeshInstance3D" parent="Ground" unique_id=111700080]
+custom_aabb = AABB(-60, -1, -60, 120, 4, 120)
+mesh = SubResource("PlaneMesh_56i7j")
+surface_material_override/0 = SubResource("ShaderMaterial_1aw3b")
+
+[node name="GroundCollision" type="CollisionShape3D" parent="Ground" unique_id=750747009]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
+shape = SubResource("BoxShape3D_gaq8h")
+
+[node name="Obstacle1" type="StaticBody3D" parent="." unique_id=600969436]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.75, -3)
+
+[node name="Mesh" type="MeshInstance3D" parent="Obstacle1" unique_id=1792440647]
+mesh = SubResource("BoxMesh_obw6i")
+surface_material_override/0 = SubResource("StandardMaterial3D_56i7j")
+
+[node name="Collision" type="CollisionShape3D" parent="Obstacle1" unique_id=1121696043]
+shape = SubResource("BoxShape3D_1aw3b")
+
+[node name="Obstacle2" type="StaticBody3D" parent="." unique_id=389063200]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0.5, 6)
+
+[node name="Mesh" type="MeshInstance3D" parent="Obstacle2" unique_id=651814096]
+mesh = SubResource("BoxMesh_gaq8h")
+surface_material_override/0 = SubResource("StandardMaterial3D_em46u")
+
+[node name="Collision" type="CollisionShape3D" parent="Obstacle2" unique_id=953819786]
+shape = SubResource("BoxShape3D_h6k38")
+
+[node name="Obstacle3" type="StaticBody3D" parent="." unique_id=987115482]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 1, 8)
+
+[node name="Mesh" type="MeshInstance3D" parent="Obstacle3" unique_id=492034857]
+mesh = SubResource("BoxMesh_u0e1l")
+surface_material_override/0 = SubResource("StandardMaterial3D_dc00g")
+
+[node name="Collision" type="CollisionShape3D" parent="Obstacle3" unique_id=1351272256]
+shape = SubResource("BoxShape3D_rq54g")
+
+[node name="Obstacle4" type="StaticBody3D" parent="." unique_id=1818093974]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 0.6, -5)
+
+[node name="Mesh" type="MeshInstance3D" parent="Obstacle4" unique_id=537905820]
+mesh = SubResource("BoxMesh_dwq0o")
+surface_material_override/0 = SubResource("StandardMaterial3D_yapyo")
+
+[node name="Collision" type="CollisionShape3D" parent="Obstacle4" unique_id=973435041]
+shape = SubResource("BoxShape3D_ew2ib")
+
+[node name="Obstacle5" type="StaticBody3D" parent="." unique_id=786043038]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 10)
+
+[node name="Mesh" type="MeshInstance3D" parent="Obstacle5" unique_id=1925718298]
+mesh = SubResource("BoxMesh_s4qyy")
+surface_material_override/0 = SubResource("StandardMaterial3D_tersh")
+
+[node name="Collision" type="CollisionShape3D" parent="Obstacle5" unique_id=562905967]
+shape = SubResource("BoxShape3D_g4hen")
+
+[node name="Obstacle6" type="StaticBody3D" parent="." unique_id=915756913]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0.75, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="Obstacle6" unique_id=908958746]
+mesh = SubResource("BoxMesh_3cvmg")
+surface_material_override/0 = SubResource("StandardMaterial3D_w0w3b")
+
+[node name="Collision" type="CollisionShape3D" parent="Obstacle6" unique_id=525731235]
+shape = SubResource("BoxShape3D_s4g5r")
+
+[node name="Player" parent="." unique_id=696522588 instance=ExtResource("1_xl1yy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+
+[node name="CameraRig" parent="." unique_id=1799840767 instance=ExtResource("2_jlx5v")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 3.5)
+
+[node name="SnowField" type="Node3D" parent="." unique_id=441200834]
+script = ExtResource("5_f38oy")
+authored_maps = ExtResource("6_m0ivj")
+ground_mesh_path = NodePath("../Ground/GroundMesh")
+obstacle_skip_names = PackedStringArray("Moon", "SkyController", "DebugMenu")
+
+[node name="SnowPrecipitation" type="Node3D" parent="." unique_id=1402676632]
+script = ExtResource("7_m0ivj")
+
+[node name="SnowWeather" type="Node" parent="." unique_id=1895811211]
+script = ExtResource("8_obw6i")
+field_path = NodePath("../SnowField")
+precipitation_path = NodePath("../SnowPrecipitation")
+environment_path = NodePath("../WorldEnvironment")
+sun_path = NodePath("../Sun")
+
+[node name="SkyController" type="Node" parent="." unique_id=232405866]
+script = ExtResource("10_1aw3b")
+weather_path = NodePath("../SnowWeather")
+environment_path = NodePath("../WorldEnvironment")
+sun_path = NodePath("../Sun")
+moon_path = NodePath("../Moon")
+snow_field_path = NodePath("../SnowField")
+ground_material_path = NodePath("../Ground/GroundMesh")
+
+[node name="DebugMenu" type="CanvasLayer" parent="." unique_id=294950414]
+script = ExtResource("11_gaq8h")
