@@ -62,6 +62,7 @@ PREVIEW_VIEWS     name -> (camera loc, target, lens mm, exposure)  => --render-<
 helpers           hn() hash noise, srgb(), newell(), box_uv()
 MeshBuilder       python lists of verts/faces/mat/smooth/uv -> ONE object via to_object()
                   face(..., facing=vec) auto-fixes winding; >4-gons are tessellated to tris
+bake_shading_normals  called by to_object(): stores the rolled thatch shading as custom split normals
 primitives        loft(rows) | tube(polyline) | obox()/box() | lathe(profile) | ring(rounded rect)
 Geo               every derived dimension + roof_z()/z_in_side()/z_in_end()/door_lift()
 build_*           build_lower_roof, build_upper_roof, build_ridge, build_wall  -> build_exterior(q)
@@ -96,7 +97,7 @@ Design rules that made this work on the first headless run:
 | Collision | `UCX_SM_<Name>_Exterior_NN`: convex boxes for the walls (split around the door), a floor slab, and a roof hull that starts at `door_clearance` (Unreal convention; Godot uses `-col`, Unity uses separate mesh colliders) |
 | Collections | `<Name>` > `_LOD0`, `_LODs`, `_Collision`, `_Preview` (camera, sun, ground ring, interior fill; never exported) |
 | UVs | World scale (1 UV = 1 m), tiling. **V follows the fibres**: up walls and slopes, and along poles. Lofts use (arc length, z). Tubes use (circumference, length). Everything else uses box projection |
-| Shading | Per-face smooth flags. Thatch surfaces and poles are smooth. Bands, lip undersides, caps and boxes are flat. Flat neighbours act as sharp edges, so no auto-smooth is needed |
+| Shading | Per-face smooth flags. Thatch surfaces and poles are smooth. Bands, lip undersides, caps and boxes are flat. Flat neighbours act as sharp edges, so no auto-smooth is needed. **Custom split normals** (`bake_shading_normals`): a smooth corner gets the vertex normal averaged over *all* faces at the vertex, flat ones included, which rolls each course's lip under. A flat corner keeps its face normal. Without them only Cycles shows the rolls; the viewport, glTF/FBX and engines split normals at flat faces and show flat shingles. Meshes that need none (frame, props, poles, collision) get none |
 | Polygons | Quads and tris only. n-gons are tessellated in `MeshBuilder.face`, because FBX can't build tangent space for n-gons |
 | Winding | Always pass `facing=` for hand-placed polys. Lofts rely on row order (see the comments in `build_upper_roof`) |
 | Budget | Printed at the end of every run: `LOD0 total N / max_tris`. It warns if over |
@@ -138,9 +139,13 @@ Construction per part:
    at mid height, the base surface at the top) plus a flat underside strip back to the course
    below. The inner surface is a separate loft with tighter corners (`inner_corner_factor`), and
    there are flat eave and top bands. Lip jitter is **outward-only**: two-sided jitter let a lip
-   sink into the course below and exposed the underside faces as light flecks.
+   sink into the course below and exposed the underside faces as light flecks. The lip ring and
+   the course top are shared with the flat underside strip, so their averaged normals roll the
+   course (see Shading).
 2. **Upper roof**: one closed cross-section (stepped outer profile, then the inner V) lofted
-   along X, with concave end caps that get tessellated. The two-sided smoke-gable triangles sit
+   along X, with concave end caps that get tessellated. Course tops are jittered **inward only**.
+   Pushed outward, they let the lip underside above lie flat on the course, the two faces cancel
+   in the vertex normal, and the rolled normal flips from slice to slice. The two-sided smoke-gable triangles sit
    at `x = ±Gx`, and their edges follow the underside line exactly.
 3. **Ridge**: an elliptical thatch bundle, crossed stick pairs, and a top pole.
 4. **Walls**: a grid built from cut lines (wall ends, opening edges, and extra cuts for an
@@ -168,6 +173,15 @@ Construction per part:
   scalar** built with `ShaderNodeMath` (`MULTIPLY`, `ADD`, `PINGPONG`, `MINIMUM`). That scalar also feeds Bump.
 - Principled BSDF sockets: `Base Color`, `Roughness`, `Metallic`, `Normal`, `Emission Color`, `Emission Strength`.
 - `polygons.foreach_set("use_smooth", ...)` still works. The fallback is the `sharp_face` attribute.
+- Smooth-shading mismatch: without custom normals, **Cycles** shades a smooth face with the
+  vertex normal averaged over every adjacent face, flat (`sharp_face`) ones included. The
+  viewport, glTF/FBX exporters and engines use `Mesh.corner_normals`, which split at flat faces.
+  Mixed smooth/flat meshes therefore look rounder in Cycles than anywhere else.
+  `Mesh.normals_split_custom_set(per_loop)` fixes the look everywhere; both exporters write it.
+- With custom normals set, `Mesh.vertex_normals` returns values **derived from the custom
+  normals**, not the face average. Read it before calling `normals_split_custom_set`.
+- `normals_split_custom_set` stores `custom_normal` as `INT16_2D` in each corner's normal space.
+  Strongly tilted normals come back about 0.5° off.
 - After deleting objects in a session, `view_layer.objects` can return `None`. Call
   `view_layer.update()` and iterate `scene.objects` before `select_set`.
 - glTF: `bpy.ops.export_scene.gltf(filepath, export_format="GLB", use_selection=True)`.
@@ -204,6 +218,8 @@ Defects already hit and fixed (check for these first in a new variant):
 | FBX tangent warnings | n-gon caps | Tessellate >4-gons in `MeshBuilder.face` |
 | A-frame pierced the roof | The legs reached past the smoke-gable line `Gx` | Stand the A-frames on tie beams at `x ≤ Gx − 0.05` |
 | Gaps where the roof meets the walls | The roof underside was not tied to the wall top | Derive `zE` from the inner wall top, and bevel the wall top along the pitch |
+| Thatch rolls in Cycles, flat shingles in glTF/FBX/engines | No custom normals; Cycles averages vertex normals across the flat lip undersides, corner normals don't | `bake_shading_normals` in `to_object` stores the rolled normals as custom split normals |
+| Shading streaks along the upper-roof course tops | Outward course-top jitter laid the lip underside flat on the course, so the vertex normal flipped | Inward-only course-top jitter, and `bake_shading_normals` keeps the corner normal where faces nearly cancel |
 
 ---
 

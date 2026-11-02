@@ -100,8 +100,17 @@ the demo does:
 - **Seams.** The source thatch has about 2 cm of outward jitter, so ends cut at different x
   would not match. Every modular cut end is snapped, loop by loop, onto one
   reference cross-section. The seam vertices then get custom normals from the
-  continuous surface, so any straight meets any other straight, corner or end with
-  no step and no shading crease. The run checks this: *worst end-to-end mismatch
+  continuous surface (the source's own normals at the reference cut), so any
+  straight meets any other straight, corner or end with no step and no shading
+  crease.
+- **Normals.** `ainu_chise.py` stores the rolled thatch shading as custom split
+  normals. `Source.load` copies them per corner into a bmesh loop layer. Cuts
+  interpolate them, welds and mitres average them per vertex, and caps stay flat.
+  `to_mesh` writes them back with `normals_split_custom_set`, and seam vertices
+  override them with the seam normal. Kit pieces in Cycles, in the viewport and
+  exported to glTF/FBX shade the same as the source house. If the source has no
+  custom normals (a `.blend` saved by an older `ainu_chise.py`), the script warns;
+  rebuild the house first. The run checks this: *worst end-to-end mismatch
   0.0 mm* over all 14 straights.
 - **Ridge sticks** are re-spaced to 0.25 m / 0.75 m in every 1 m ridge module, so a
   row of modules keeps an even rhythm. This is why ridge area is +4.5% compared with the source.
@@ -130,7 +139,3 @@ the demo does:
   or L-junction of the upper smoke-gable roof would need its own valley piece.
 - Procedural materials don't export (same as `ainu_chise.py`). Pieces carry
   world-scale UVs and material slot names, ready for baked or engine materials.
-- Cycles shades the *original* merged mesh with rounder thatch rolls than any engine
-  will. Without custom normals, Cycles averages vertex normals across the flat lip
-  faces. The kit pieces (and the original once exported to glTF) render with the
-  per-corner normals that engines use.

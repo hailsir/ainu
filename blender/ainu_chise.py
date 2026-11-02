@@ -463,33 +463,36 @@ def build_upper_roof(b, G, q):
     """Gabled top: closed thatch shell along X, stepped courses, capped ends."""
     Tu, M = q["tiers_u"], "Thatch_Roof"
     Hs = [G.zG + (G.zR - G.zG) * k / Tu for k in range(Tu + 1)]
-    up, upf, upj = [], [], []   # +Y side, bottom -> apex; flag = smooth segment to next point
+    # +Y side, bottom -> apex. upf: smooth segment to the next point. upj: y jitter, 1 = outward,
+    # -1 = inward (course tops: pushed outward they let the lip underside above lie flat on the
+    # course, the faces cancel and the rolled shading normal flips), 0 = none
+    up, upf, upj = [], [], []
     for k in range(Tu):
         h0, h1 = Hs[k], Hs[k + 1]
         L = G.lip * (1.8 if k == 0 else 1.0)
         hm = 0.5 * (h0 + h1)
         up += [(G.Y(h0) + L, h0 - 0.04), (G.Y(hm) + L * 0.55, hm)]
         upf += [True, True]
-        upj += [False, True]
+        upj += [0, 1]
         if k < Tu - 1:
             up.append((G.Y(h1), h1))
             upf.append(False)
-            upj.append(True)
+            upj.append(-1)
     P = up + [(0.0, G.zR)] + [(-y, z) for y, z in reversed(up)]
-    J = upj + [False] + upj[::-1]
+    J = upj + [0] + upj[::-1]
     S = upf + upf[::-1]
     inner = [(-G.yg, G.zG - G.t), (0.0, G.zR - G.t), (G.yg, G.zG - G.t)]
     sec = P + inner
     flags = S + [False, True, True, False]
-    jits = J + [False, False, False]
+    jits = J + [0, 0, 0]
     rows, slices = [], []
     n = q["nx_u"]
     for i in range(n + 1):
         x = -G.xe + 2 * G.xe * i / n
         pts = []
         for k, (y, z) in enumerate(sec):
-            dy = 0.03 * q["jitter"] * hn(i, k, 9) if jits[k] else 0.0
-            pts.append(Vector((x, y + math.copysign(dy, y), z)))
+            dy = 0.03 * q["jitter"] * abs(hn(i, k, 9)) * jits[k]
+            pts.append(Vector((x, y + math.copysign(1.0, y) * dy, z)))
         slices.append(pts)
         rows.append(b.verts(pts))
     loft(b, rows, M, closed=True, smooth=flags, uvf=lambda p, a: (p[0], p[2]))
@@ -925,6 +928,61 @@ def make_material(name, spec):
     return mat
 
 
+def bake_shading_normals(me, tol=math.radians(0.25), min_sum=0.05):
+    """Store the intended shading as custom split normals, so Cycles, the viewport and
+    every exporter / game engine show the same thing.
+
+    Intended look: a smooth corner takes the vertex normal, averaged over *every* face at
+    the vertex, flat ones included. A thatch course shares its lip ring with the flat
+    underside strip and its top ring with the course above, so this rolls the lips under
+    and makes each course read as a rounded bundle. Flat corners keep their face normal, so
+    bands, caps and boxes stay flat. Without custom normals only Cycles shades it that way.
+    Corner normals, which the viewport, glTF/FBX and engines use, split at every flat face
+    and shade the courses as flat shingles.
+
+    Where the faces at a vertex nearly cancel (a hairpin fold, summed normal < `min_sum` of
+    the summed corner angles), the average is noise and can point into the surface. Those
+    corners keep the plain corner normal.
+
+    Meshes whose corner normals already match (poles, frame, props, collision) are left
+    without custom normals. In practice only the thatch (Thatch_Roof / Thatch_Wall) gets them."""
+    if not me.loops:
+        return False
+    acc = {}                                    # vertex -> [sum(angle * face normal), sum(angle)]
+    co = [v.co for v in me.vertices]
+    for p in me.polygons:
+        vs, k = p.vertices, len(p.vertices)
+        for j, v in enumerate(vs):
+            ang = (co[vs[j - 1]] - co[v]).angle(co[vs[(j + 1) % k]] - co[v], 0.0)
+            e = acc.setdefault(v, [Vector(), 0.0])
+            e[0] += p.normal * ang
+            e[1] += ang
+    weak = {v for v, (s, w) in acc.items() if s.length < min_sum * w}
+    nv, np_, nl = len(me.vertices), len(me.polygons), len(me.loops)
+    vn, pn, cn = [0.0] * (3 * nv), [0.0] * (3 * np_), [0.0] * (3 * nl)
+    me.vertex_normals.foreach_get("vector", vn)
+    me.polygon_normals.foreach_get("vector", pn)
+    me.corner_normals.foreach_get("vector", cn)
+    lv = [0] * nl
+    me.loops.foreach_get("vertex_index", lv)
+    want, differs, cos_tol = [None] * nl, False, math.cos(tol)
+    for p in me.polygons:
+        src, k = (vn, None) if p.use_smooth else (pn, p.index)
+        for li in p.loop_indices:
+            i = 3 * (lv[li] if k is None else k)
+            n = Vector(src[i:i + 3])
+            if (k is None and lv[li] in weak) or n.length_squared < 1e-12:
+                n = Vector(cn[3 * li:3 * li + 3])   # degenerate fold: keep the corner normal
+            n.normalize()
+            want[li] = n[:]
+            if not differs and n.dot(Vector(cn[3 * li:3 * li + 3])) < cos_tol:
+                differs = True
+    if not differs:
+        return False
+    me.normals_split_custom_set(want)
+    return True
+
+
 def to_object(b, name, coll):
     old = bpy.data.objects.get(name)
     if old:
@@ -949,6 +1007,7 @@ def to_object(b, name, coll):
     uvl.data.foreach_set("uv", flat)
     me.validate(clean_customdata=False)
     me.update()
+    bake_shading_normals(me)
     ob = bpy.data.objects.new(name, me)
     coll.objects.link(ob)
     return ob

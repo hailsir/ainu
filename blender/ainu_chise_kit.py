@@ -189,16 +189,23 @@ def new_bm():
     for name in ("isl", "cap", "cut"):
         bm.faces.layers.int.new(name)
     bm.verts.layers.float_vector.new("seam_n")   # custom normal for seam vertices (0 = auto)
+    bm.loops.layers.float_vector.new("cn")       # source corner normal, world space (0 = auto)
     return bm
 
 
+def mirror_n(n):
+    """Normal reflected across the vertical plane x = -y (see append_faces)."""
+    return Vector((-n.y, -n.x, n.z))
+
+
 def append_faces(dst, src, faces, offset=None, mirror_diag=False, only_cut=False):
-    """Copy faces (UVs, material, smooth, tags) from bmesh `src` into `dst`.
+    """Copy faces (UVs, corner normals, material, smooth, tags) from bmesh `src` into `dst`.
     mirror_diag reflects across the vertical plane x = -y (and fixes the winding)."""
     uv_s, uv_d = src.loops.layers.uv["UVMap"], dst.loops.layers.uv["UVMap"]
     ls = [src.faces.layers.int[n] for n in ("isl", "cap", "cut")]
     ld = [dst.faces.layers.int[n] for n in ("isl", "cap", "cut")]
     sn_s, sn_d = src.verts.layers.float_vector["seam_n"], dst.verts.layers.float_vector["seam_n"]
+    cn_s, cn_d = src.loops.layers.float_vector["cn"], dst.loops.layers.float_vector["cn"]
     vmap = {}
     for f in faces:
         if only_cut and not f[ls[2]]:
@@ -212,7 +219,7 @@ def append_faces(dst, src, faces, offset=None, mirror_diag=False, only_cut=False
                     co += offset
                 nv = vmap[v] = dst.verts.new(co)
                 n = v[sn_s]
-                nv[sn_d] = Vector((-n.y, -n.x, n.z)) if mirror_diag else n
+                nv[sn_d] = mirror_n(n) if mirror_diag else n
             vs.append(nv)
         loops = list(f.loops)
         if mirror_diag:
@@ -228,6 +235,7 @@ def append_faces(dst, src, faces, offset=None, mirror_diag=False, only_cut=False
             nf[b] = f[a]
         for nl, ol in zip(nf.loops, loops):
             nl[uv_d].uv = ol[uv_s].uv
+            nl[cn_d] = mirror_n(ol[cn_s]) if mirror_diag else ol[cn_s]
     return dst
 
 
@@ -261,6 +269,7 @@ def fill_caps(bm, co, no, outward, eps=1e-4):
     cap = bm.faces.layers.int["cap"]
     cut = bm.faces.layers.int["cut"]
     uv = bm.loops.layers.uv["UVMap"]
+    cn = bm.loops.layers.float_vector["cn"]
 
     def on(v):
         return abs((v.co - co).dot(no)) < eps
@@ -293,6 +302,7 @@ def fill_caps(bm, co, no, outward, eps=1e-4):
             f[isl], f[cap], f[cut] = isl_id, 1, 1
             for lp in f.loops:
                 lp[uv].uv = (lp.vert.co.dot(t1), lp.vert.co.dot(t2))
+                lp[cn] = (0.0, 0.0, 0.0)
             made += 1
     return made
 
@@ -363,12 +373,14 @@ class Source:
         self.mats = []
         self.bm = new_bm()
         self.src_of = []           # per island: source index
+        self.no_custom = []        # sources without custom normals
         self.load()
         self.find_islands()
 
     def load(self):
         bm = self.bm
         uv = bm.loops.layers.uv["UVMap"]
+        cnl = bm.loops.layers.float_vector["cn"]
         self.face_src = {}
         for si, name in enumerate(CONFIG["sources"]):
             ob = bpy.data.objects[name]
@@ -380,6 +392,14 @@ class Source:
                 remap.append(self.mats.index(m))
             vmap = [bm.verts.new(ob.matrix_world @ v.co) for v in me.vertices]
             uvd = me.uv_layers.active.data if me.uv_layers.active else None
+            # custom normals (ainu_chise.py stores the rolled thatch shading this way) are
+            # carried per loop; meshes without them keep Blender's own normals (zero = auto)
+            cnd = None
+            if me.has_custom_normals:
+                nm = ob.matrix_world.to_3x3().inverted_safe().transposed()
+                cnd = [(nm @ Vector(c.vector)).normalized() for c in me.corner_normals]
+            else:
+                self.no_custom.append(name)
             for p in me.polygons:
                 try:
                     f = bm.faces.new([vmap[i] for i in p.vertices])
@@ -391,7 +411,14 @@ class Source:
                 if uvd:
                     for loop, li in zip(f.loops, p.loop_indices):
                         loop[uv].uv = uvd[li].uv
+                if cnd:
+                    for loop, li in zip(f.loops, p.loop_indices):
+                        loop[cnl] = cnd[li]
         log("loaded %d faces / %d materials from %s" % (len(bm.faces), len(self.mats), ", ".join(CONFIG["sources"])))
+        if CONFIG["sources"][0] in self.no_custom:
+            log("WARNING: %s has no custom normals (made by an older ainu_chise.py?). The thatch will"
+                " shade as flat shingles instead of rolled courses. Rebuild the house with ainu_chise.py."
+                % CONFIG["sources"][0])
 
     def mat_name(self, idx):
         m = self.mats[idx]
@@ -669,7 +696,8 @@ class Profile:
         cutv = [v for v in res["geom_cut"] if isinstance(v, bmesh.types.BMVert)]
         cute = [e for e in res["geom_cut"] if isinstance(e, bmesh.types.BMEdge)]
         self.pts = [self.flat(v.co) for v in cutv]
-        self.nrm = [self.smooth_normal(v) for v in cutv]
+        cn = bm.loops.layers.float_vector["cn"]
+        self.nrm = [self.smooth_normal(v, cn) for v in cutv]
         index = {v: i for i, v in enumerate(cutv)}
         segs = [(index[e.verts[0]], index[e.verts[1]]) for e in cute if e.verts[0] in index and e.verts[1] in index]
         self.loops = self.components(len(self.pts), segs, self.pts)
@@ -709,14 +737,20 @@ class Profile:
         return out
 
     @staticmethod
-    def smooth_normal(v):
-        """Normal of the continuous surface at a cut vertex: area-weighted average of the
-        smooth faces around it (zero if only flat faces touch it; they keep face normals)."""
-        n = Vector()
-        for f in v.link_faces:
-            if f.smooth:
-                n += f.normal * f.calc_area()
-        return n.normalized() if n.length > 1e-12 else Vector()
+    def smooth_normal(v, cn):
+        """Normal of the continuous surface at a cut vertex, as the source shades it: the
+        carried source corner normals of its smooth faces (bisect_plane interpolates them
+        along the cut edges), so a seam keeps the rolled thatch shading. Sources without
+        custom normals fall back to the area-weighted smooth face normals. Zero if only flat
+        faces touch the vertex; they keep face normals."""
+        n, m = Vector(), Vector()
+        for lp in v.link_loops:
+            if lp.face.smooth:
+                n += lp[cn]
+                m += lp.face.normal * lp.face.calc_area()
+        if n.length > 1e-6:
+            return n.normalized()
+        return m.normalized() if m.length > 1e-12 else Vector()
 
     def snap_in_loop(self, loop, q):
         """Closest profile vertex, or else closest point on the loop outline, with normal."""
@@ -758,6 +792,7 @@ class Profile:
         ax, tol, fall = self.axis, CONFIG["seam_match"], CONFIG["seam_falloff"]
         isl = bm.faces.layers.int["isl"]
         sn = bm.verts.layers.float_vector["seam_n"]
+        cn = bm.loops.layers.float_vector["cn"]
         ends = [v for v in bm.verts if abs(v.co[ax] - value) < 1e-5]
         if not ends or not self.loops:
             return 0, len(ends)
@@ -798,7 +833,7 @@ class Profile:
                 if (p - q).length > tol:
                     continue
                 delta[v] = p - self.flat(v.co)
-                own = self.smooth_normal(v)
+                own = self.smooth_normal(v, cn)
                 if n.length and own.length and own.angle(n) < math.radians(35):
                     v[sn] = n            # (a tube rotated differently keeps its own shading)
         if not delta:
@@ -1107,8 +1142,22 @@ def to_mesh(name, bm, pivot, mats):
     remap = {m: i for i, m in enumerate(used)}
     for f in bm.faces:
         f.material_index = remap[f.material_index]
+    # Custom normals per corner, written into the "cn" loop layer:
+    #   smooth corners: the seam normal on a seam vertex (so neighbouring pieces shade as
+    #     one), otherwise the source's corner normal carried from ainu_chise.py (the rolled
+    #     thatch shading), made equal around each vertex so welded copies and mitres stay
+    #     smooth (all smooth corners of a source vertex already share one normal)
+    #   flat corners, and sources without custom normals: zero = Blender's own normal
     sn = bm.verts.layers.float_vector["seam_n"]
-    seam = {v.index: Vector(v[sn]) for v in bm.verts if Vector(v[sn]).length > 0.5}
+    cn = bm.loops.layers.float_vector["cn"]
+    for v in bm.verts:
+        smooth = [lp for lp in v.link_loops if lp.face.smooth]
+        n = Vector(v[sn])
+        if n.length < 0.5:
+            n = sum((Vector(lp[cn]) for lp in smooth), Vector())
+            n = n.normalized() if n.length > 1e-6 else Vector()
+        for lp in v.link_loops:
+            lp[cn] = n if lp.face.smooth else Vector()
     for lay in ("isl", "cap", "cut"):
         bm.faces.layers.int.remove(bm.faces.layers.int[lay])
     bm.verts.layers.float_vector.remove(sn)
@@ -1117,18 +1166,13 @@ def to_mesh(name, bm, pivot, mats):
     bm.free()
     for m in used:
         me.materials.append(mats[m])
-    if seam:
-        # seam vertices take the normal of the continuous surface so neighbouring pieces
-        # shade as one; zero vectors keep Blender's own normal everywhere else
-        loops = [(0.0, 0.0, 0.0)] * len(me.loops)
-        for p in me.polygons:
-            if not p.use_smooth:
-                continue
-            for li in p.loop_indices:
-                n = seam.get(me.loops[li].vertex_index)
-                if n is not None:
-                    loops[li] = n[:]
-        me.normals_split_custom_set(loops)
+    attr = me.attributes.get("cn")
+    flat = [0.0] * (3 * len(me.loops))
+    if attr is not None:
+        attr.data.foreach_get("vector", flat)
+        me.attributes.remove(attr)
+    if any(flat):
+        me.normals_split_custom_set([flat[i:i + 3] for i in range(0, len(flat), 3)])
     return me
 
 
